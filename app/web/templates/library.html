@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Library · Deep Research{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Library</h1>
+  <p class="page-desc">Browse and search across all your research</p>
+</div>
+<form method="get" action="/library" class="search-bar">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search across all research…">
+  <select name="mode">
+    <option value="keyword" {{ 'selected' if mode == 'keyword' else '' }}>Keyword</option>
+    <option value="semantic" {{ 'selected' if mode == 'semantic' else '' }} {{ 'disabled' if not rag_available else '' }}>Semantic{{ '' if rag_available else ' (unavailable)' }}</option>
+  </select>
+  <button type="submit">Search</button>
+</form>
+
+{% if results is not none %}
+  <p class="result-count">{{ results | length }} match(es) for "{{ q }}" ({{ mode }})</p>
+  {% for hit in results %}
+  <a class="hit-card card" href="/runs/{{ hit.run['id'] }}">
+    <span class="chip status-{{ hit.run['status'] }}">{{ hit.run['status'] }}</span>
+    <span class="hit-run">{{ hit.run['title'] or hit.run['query'] }}</span>
+    <span class="hit-kind">{{ hit.kind }}{% if hit.title and hit.kind == 'finding' %}: {{ hit.title }}{% endif %}</span>
+    {# keyword snippets arrive pre-escaped as Markup from highlight_snippet;
+       semantic snippets are plain text and get autoescaped here #}
+    <span class="hit-snippet">{{ hit.snippet }}</span>
+    {% if hit.score is defined %}<span class="hit-score">similarity {{ '%.2f' | format(hit.score) }}</span>{% endif %}
+  </a>
+  {% else %}
+  <p class="empty-note">Nothing found.</p>
+  {% endfor %}
+{% elif runs is not none %}
+  <div class="run-list">
+    {% for item in runs %}
+    {% set r = item.row %}
+    <div class="run-item-wrap">
+      <a class="run-item" href="/runs/{{ r['id'] }}">
+        <span class="chip status-{{ r['status'] }}">{{ r['status'] }}</span>
+        <div class="run-info">
+          <span class="run-title">{{ r['title'] or r['query'] }}</span>
+          <span class="run-meta">depth {{ r['depth'] }} · {{ RECENCY_LABELS[r['recency']] | lower }}
+            {%- if item.stats and item.stats.sources_kept is defined %} · {{ item.stats.sources_kept }} sources{% endif %}
+            · {{ r['created_at'][:16].replace('T', ' ') }}        {%- if r['created_by'] %} <span class="user-tag" style="--hue: {{ r['created_by'] | user_hue }}" title="started by {{ r['created_by'] }}">{{ r['created_by'] }}</span>{% endif %}</span>
+        </div>
+      </a>
+      {% if r['status'] == 'completed' %}{% include "partials/evergreen_star.html" %}{% endif %}
+      <button class="delete-btn outline" 
+              hx-delete="/runs/{{ r['id'] }}" 
+              hx-confirm="Are you sure you want to delete this run?"
+              hx-target="closest .run-item-wrap" 
+              hx-swap="outerHTML"
+              title="Delete run">×</button>
+    </div>
+    {% else %}
+    <p class="empty-note">No research yet.</p>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

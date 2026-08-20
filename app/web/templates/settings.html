@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Settings · Deep Research{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Settings</h1>
+  <p class="page-desc">Configure your LLM provider, search engine, and integrations</p>
+</div>
+{% if saved %}<p class="banner banner-ok">Saved. Values apply from the next research run. Telegram changes need a container restart.</p>{% endif %}
+
+<form method="post" action="/settings">
+  <article class="card">
+    <h3>LLM</h3>
+    <label>Provider
+      <select name="llm_provider" id="llm-provider">
+        {% for p in PROVIDERS.values() %}
+        <option value="{{ p.key }}" {{ 'selected' if cfg.llm_provider == p.key else '' }}
+                data-base-url="{{ p.base_url }}" data-model="{{ p.default_model }}"
+                data-needs-key="{{ 1 if p.needs_key else 0 }}"
+                data-hint="{{ p.hint }}">{{ p.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <p class="hint" id="provider-hint">{{ cfg.provider.hint }}</p>
+
+    <div class="grid">
+      <label>Model
+        <input type="text" name="llm_model" id="llm-model" value="{{ cfg.resolved_model }}"
+               placeholder="model id">
+      </label>
+      <label>API key
+        <input type="password" name="llm_api_key" id="llm-api-key" autocomplete="off"
+               placeholder="{{ masked.llm_api_key or ('not needed for local servers' if cfg.provider.needs_key == false else 'not set') }} — blank keeps the current one">
+      </label>
+    </div>
+    <label>Base URL
+      <input type="text" name="llm_base_url" id="llm-base-url" value="{{ cfg.resolved_base_url }}">
+    </label>
+    <label>Fast model <small>(optional)</small>
+      <input type="text" name="fast_model" value="{{ cfg.fast_model }}"
+             placeholder="leave blank to use the model above for everything">
+    </label>
+    <p class="hint">A run makes one planning and one synthesis call but a dozen
+      or more per-document note calls. Naming a smaller, faster model here uses
+      it for the notes only — often several times quicker with little loss.</p>
+
+    <div class="test-row">
+      <button type="button" hx-post="/settings/test-llm" hx-target="#llm-test" class="secondary outline">Test LLM</button>
+      <span id="llm-test"></span>
+    </div>
+  </article>
+
+  <article class="card">
+    <h3>Search</h3>
+    <div class="grid">
+      <label>SearXNG URL
+        <input type="text" name="searxng_url" value="{{ cfg.searxng_url }}">
+      </label>
+      <label>Results per query
+        <input type="number" name="results_per_query" min="1" max="20" value="{{ cfg.results_per_query }}">
+      </label>
+    </div>
+    <label>
+      <input type="checkbox" name="reference_chasing" {{ 'checked' if cfg.reference_chasing else '' }}>
+      Follow references cited by kept sources
+    </label>
+    <p class="hint">When a source makes the cut, its most relevant outbound
+      links become candidates too — the references a good page chooses are
+      often better than anything a search engine returns.</p>
+    <label>Blocked domains <small>(comma-separated, never fetched)</small>
+      <input type="text" name="blocked_domains" value="{{ cfg.blocked_domains }}"
+             placeholder="e.g. pinterest.com, quora.com">
+    </label>
+    <label>Authority sites <small>(one per line: domain — what it holds)</small>
+      <textarea name="authority_sites" rows="3"
+                placeholder="charm.li — full factory service manuals for cars">{{ cfg.authority_sites }}</textarea>
+    </label>
+    <p class="hint">Sites full of authoritative primary documents that search
+      engines barely index. When one fits the topic, the planner dedicates a
+      <code>site:</code>-scoped query to it.</p>
+    <label>
+      <input type="checkbox" name="browser_impersonation" {{ 'checked' if cfg.browser_impersonation else '' }}>
+      Retry refused fetches with a real Chrome fingerprint
+    </label>
+    <p class="hint">Many CDNs reject non-browser clients on the TLS handshake
+      alone. When a page answers 403/429/challenge, it is retried once
+      presenting Chrome's exact fingerprint — no browser involved.</p>
+    <label>Browser solver URL <small>(optional, for JavaScript challenges)</small>
+      <input type="text" name="browser_solver_url" value="{{ cfg.browser_solver_url }}"
+             placeholder="http://flaresolverr:8191">
+    </label>
+    <p class="hint">Last resort for pages that refuse even a real fingerprint:
+      a FlareSolverr headless browser solves the challenge and returns the
+      page. Start one with <code>docker compose --profile browser up -d</code>.</p>
+    <label>
+      <input type="checkbox" name="respect_robots" {{ 'checked' if cfg.respect_robots else '' }}>
+      Respect robots.txt when fetching pages
+    </label>
+    <p class="hint">Off by default. This reads a handful of pages you
+      could open yourself, one request per second per domain. Enable it
+      if you would rather honour crawler directives.</p>
+    <div class="test-row">
+      <button type="button" hx-post="/settings/test-searxng" hx-target="#sx-test" class="secondary outline">Test SearXNG</button>
+      <span id="sx-test"></span>
+    </div>
+  </article>
+
+  <article class="card">
+    <h3>Telegram bot <small>(optional)</small></h3>
+    <div class="grid">
+      <label>Bot token
+        <input type="password" name="telegram_bot_token" autocomplete="off"
+               placeholder="{{ masked.telegram_bot_token or 'not set' }} — leave blank to keep">
+      </label>
+      <label>Allowed user IDs <small>(comma-separated — send /id to the bot)</small>
+        <input type="text" name="telegram_allowed_user_ids" value="{{ cfg.telegram_allowed_user_ids }}">
+      </label>
+    </div>
+    <p class="hint">Get a token from @BotFather. Restart the container after changing these.</p>
+  </article>
+
+  <article class="card">
+    <h3>Web access</h3>
+    <label>Password <small>(blank input keeps the current one)</small>
+      <input type="password" name="web_password" autocomplete="new-password"
+             placeholder="{{ masked.web_password or 'no password set' }}">
+    </label>
+    <label><input type="checkbox" name="web_password_clear"> Remove the password entirely</label>
+    <label>LAN user label
+      <input type="text" name="lan_user_label" value="{{ cfg.lan_user_label }}" placeholder="LAN">
+    </label>
+    <p class="hint">Runs started through the Cloudflare tunnel are tagged with
+      the signed-in user's Access identity automatically. Runs from the local
+      network have no identity to read — they get this label instead.</p>
+  </article>
+
+  <button type="submit" class="save-btn">Save settings</button>
+  <p class="hint">Secrets are stored in <code>data/settings.json</code> (mode 600), never in the image or git.</p>
+</form>
+{% endblock %}

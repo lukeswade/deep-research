@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <h1>What should I research?</h1>
+  <p class="hero-sub">AI-powered deep web research with iterative source discovery</p>
+
+  {% if llm_configured is defined and not llm_configured %}
+  <article class="banner banner-setup">
+    <p><strong>Almost ready.</strong> No language model is configured yet, so
+       research runs will fail. Pick a provider — a cloud API key, or a local
+       server like LM Studio or Ollama — and you're set.</p>
+    <a href="/settings" role="button">Open Settings</a>
+  </article>
+  {% endif %}
+
+  {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+  <form method="post" action="/runs" class="new-run card">
+    <textarea name="query" rows="3" required minlength="3" autofocus
+      hx-get="/partials/similar" hx-trigger="keyup changed delay:700ms"
+      hx-target="#similar-hint" hx-swap="innerHTML"
+      placeholder="e.g. State of solid-state battery manufacturing — who is closest to mass production and what are the remaining blockers?">{{ prefill.query if prefill else "" }}</textarea>
+    <div id="similar-hint"></div>
+    <div class="controls">
+      <label class="depth-label">Depth <output id="depth-val">{{ prefill.depth if prefill else 3 }}</output>
+        <input type="range" name="depth" id="depth-range" min="0" max="10"
+               value="{{ prefill.depth if prefill else 3 }}"
+               hx-get="/partials/estimate" hx-trigger="input changed delay:150ms"
+               hx-target="#estimate" hx-swap="outerHTML"
+               oninput="document.getElementById('depth-val').value = this.value == '0' ? '0 (AI answer)' : this.value">
+      </label>
+      <label>Recency
+        <select name="recency">
+          {% for r in RECENCY_CHOICES %}
+          <option value="{{ r }}" {{ 'selected' if (prefill.recency if prefill else 'all') == r else '' }}>{{ RECENCY_LABELS[r] }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit" class="go">Start research</button>
+    </div>
+    <fieldset class="cats" id="cat-group"
+              title="Which search-engine categories this run queries. Your last selection is remembered.">
+      <legend>Search in</legend>
+      {% for c in ["general", "science", "it", "news", "videos", "social media", "files"] %}
+      <label><input type="checkbox" name="categories" value="{{ c }}"> {{ c }}</label>
+      {% endfor %}
+    </fieldset>
+    <script>
+      (function () {
+        const boxes = document.querySelectorAll("#cat-group input");
+        let saved;
+        try { saved = JSON.parse(localStorage.getItem("search_categories")); }
+        catch (e) { saved = null; }
+        if (!Array.isArray(saved) || !saved.length) saved = ["general", "science"];
+        boxes.forEach(b => { b.checked = saved.includes(b.value); });
+        document.getElementById("cat-group").addEventListener("change", () => {
+          const picked = [...boxes].filter(b => b.checked).map(b => b.value);
+          localStorage.setItem("search_categories", JSON.stringify(picked));
+        });
+      })();
+    </script>
+    {% include "partials/estimate.html" %}
+    <p class="hint">Depth is an effort dial: every two steps buy roughly one
+      search round, and each round digs into the gaps the previous one
+      exposed. <strong>0</strong> answers instantly from search snippets, like
+      a search engine's AI overview &middot; <strong>1&ndash;4</strong> a
+      question (one or two rounds) &middot; <strong>5&ndash;7</strong> a deep
+      dive &middot; <strong>8&ndash;10</strong> deep research at
+      dozens-of-sources scale.</p>
+  </form>
+</section>
+
+<section id="recent" hx-get="/partials/recent-runs" hx-trigger="every 5s" hx-swap="innerHTML">
+  {% include "partials/runs_list.html" %}
+</section>
+{% endblock %}

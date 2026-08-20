@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ row['title'] or row['query'] }} · Deep Research{% endblock %}
+{% block content %}
+<header class="run-header">
+  <h1>{{ row['title'] or row['query'] }}</h1>
+  <p class="orig-query">&ldquo;{{ row['query'] }}&rdquo;</p>
+  <div class="chip-row">
+    <span id="status-chip" class="chip status-{{ row['status'] }}">{{ row['status'] }}</span>
+    <span class="chip">depth {{ row['depth'] }}</span>
+    <span class="chip">{{ RECENCY_LABELS[row['recency']] | lower }}</span>
+    <span class="chip">via {{ row['origin'] }}</span>
+    {% if queue_position %}<span class="chip">queue position {{ queue_position }}</span>{% endif %}
+  </div>
+  {% if parent %}<p class="parent-note">follows up on <a href="/runs/{{ parent['id'] }}">{{ parent['title'] or parent['query'] }}</a></p>{% endif %}
+</header>
+
+  <article class="progress-card card">
+    <div class="progress-head">
+      <div class="progress-label">
+        <div class="spinner"></div>
+        <p>Researching<span class="dots"></span></p>
+      </div>
+      <form method="post" action="/runs/{{ run_id }}/cancel">
+        <button type="submit" class="cancel-btn">Cancel</button>
+      </form>
+    </div>
+    {% set quick_chat = row['depth']|int == 0 %}
+    {# Quick chat streams its whole answer; a research run streams only the
+       final synthesis, so the pane stays hidden until the first token. #}
+    <div id="stream-pane" class="stream-pane"{% if not quick_chat %} hidden{% endif %}>
+      {% if not quick_chat %}<p class="stream-label">Writing the overview…</p>{% endif %}
+      <div id="chat-output" class="stream-output"></div>
+    </div>
+    <pre id="live-log" class="log" data-run="{{ run_id }}"
+         {% if quick_chat %}hidden{% endif %}></pre>
+  </article>
+{% endblock %}
