@@ -1,0 +1,27 @@
+# Secrets — never commit
+.env
+
+# Runtime data (sqlite, chroma, research output, settings.json with API keys)
+data/
+
+# Python
+.venv/
+uv.lock
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Node (only ever used to vendor static assets)
+node_modules/
+.pnpm-store
+
+# Build output
+dist
+.vitesse
+.wrangler
+
+# OS / editor
+.DS_Store
+*.tmp
+*.log

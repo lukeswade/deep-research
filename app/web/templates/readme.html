@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Read Me - Deep Research{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Project Documentation</h1>
+  <p class="page-desc">Technical documentation and usage guide</p>
+</div>
+<article class="card readme-card">
+  <div class="prose">
+    {{ content | safe }}
+  </div>
+</article>
+{% endblock %}

@@ -1,0 +1,107 @@
+# SearXNG configuration for the deep-research stack.
+# `use_default_settings: true` keeps everything stock except the overrides below.
+use_default_settings: true
+
+server:
+  # Overridden by the SEARXNG_SECRET env var set in docker-compose.
+  secret_key: "change_me"
+  # The limiter needs a valkey instance and only matters for public instances;
+  # this one is reachable solely from the internal Docker network.
+  limiter: false
+  image_proxy: false
+
+search:
+  # 'json' is required for the app's API access — without it
+  # /search?format=json returns HTTP 403.
+  formats:
+    - html
+    - json
+  # One retry gives a transiently rate-limited engine a second chance before
+  # the whole query comes back empty.
+  max_page: 2
+
+outgoing:
+  request_timeout: 8.0
+  max_request_timeout: 15.0
+  pool_connections: 100
+  pool_maxsize: 20
+
+# Engine mix matters more here than on a general-purpose instance. The stock
+# general category leans on Google/Brave/DuckDuckGo/Startpage, all of which
+# rate-limit or serve CAPTCHAs to home and datacenter IPs under research-volume
+# traffic — when they all trip at once a run silently finds nothing. The app
+# therefore searches general + science + it (see SEARCH_CATEGORIES), which
+# reaches engines that do not gate aggressively and are better sources for
+# research anyway: Crossref, OpenAlex, Semantic Scholar, arXiv, Stack Overflow,
+# GitHub, Hacker News.
+engines:
+  # --- video + community (the app reads YouTube via caption transcripts and
+  # reddit threads via the JSON API — these engines let runs search them
+  # directly through the videos / social media categories) ---
+  - name: youtube
+    disabled: false
+  # This SearXNG no longer ships a reddit engine, so define one over
+  # reddit's public search API with the generic JSON engine.
+  - name: reddit
+    engine: json_engine
+    shortcut: re
+    categories: social media
+    disabled: false
+    timeout: 8.0
+    paging: false
+    search_url: https://old.reddit.com/search.json?q={query}&limit=25&sort=relevance
+    results_query: data/children
+    url_query: data/permalink
+    url_prefix: https://www.reddit.com
+    title_query: data/title
+    content_query: data/selftext
+  # The default social-media engines return user-profile noise, not
+  # discussions — reddit is the one this category is for.
+  - name: mastodon users
+    disabled: true
+  - name: mastodon hashtags
+    disabled: true
+  - name: lemmy users
+    disabled: true
+  - name: lemmy communities
+    disabled: true
+
+  # --- resilient general-web engines ---
+  - name: mojeek
+    disabled: false
+  - name: bing
+    disabled: false
+  - name: qwant
+    disabled: false
+  - name: wikipedia
+    disabled: false
+  - name: wikidata
+    disabled: false
+
+  # --- academic / primary sources ---
+  - name: arxiv
+    disabled: false
+  - name: crossref
+    disabled: false
+  - name: semantic scholar
+    disabled: false
+  - name: openalex
+    disabled: false
+
+  # --- technical ---
+  - name: github
+    disabled: false
+  - name: stackoverflow
+    disabled: false
+  - name: hackernews
+    disabled: false
+
+  # --- keep the gated ones, but let them fail fast rather than stall a round ---
+  - name: google
+    timeout: 5.0
+  - name: duckduckgo
+    timeout: 5.0
+  - name: brave
+    timeout: 5.0
+  - name: startpage
+    timeout: 5.0

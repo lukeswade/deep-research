@@ -1,0 +1,50 @@
+<header class="run-header">
+  <div class="run-header-top">
+    <h1>{{ row['title'] or row['query'] }}</h1>
+    <div class="run-actions">
+      {% if row['status'] == 'completed' %}
+      <button class="evergreen-btn{{ ' is-on' if row['evergreen'] else '' }}"
+              hx-post="/runs/{{ run_id }}/evergreen"
+              hx-target="closest .run-header" hx-swap="outerHTML"
+              title="{{ 'Stop refreshing this research automatically' if row['evergreen'] else 'Re-research this topic every day and link the updates here' }}">
+        {{ '★ Evergreen on' if row['evergreen'] else '☆ Keep evergreen' }}
+      </button>
+      {% endif %}
+      <a class="export-btn" href="/runs/{{ run_id }}/export.pdf"
+         title="Download this run as a PDF">Export PDF</a>
+      <a class="export-btn" href="/runs/{{ run_id }}/export.html"
+         title="Download this run as a single self-contained web page — overview, sources, and collapsible notes, shareable anywhere">Export HTML</a>
+      <a class="export-btn" href="/runs/{{ run_id }}/export-interactive.html"
+         title="Download this run as a portable one-file mini-app: tabs, search over sources and notes, clickable citations, dark/light toggle">Export interactive</a>
+      {% if row['status'] in ('completed', 'interrupted', 'failed') %}
+      <button class="resynth-btn"
+              hx-post="/runs/{{ run_id }}/resynthesize"
+              hx-swap="outerHTML"
+              hx-confirm="Rewrite the overview from this run's stored sources? The current overview will be replaced."
+              title="Regenerate the overview from the stored sources without re-searching — for when synthesis failed or the model produced garbage">
+        Re-synthesize</button>
+      {% endif %}
+      <button class="delete-btn"
+              hx-delete="/runs/{{ run_id }}"
+              hx-confirm="Permanently delete this run and all its files?"
+              title="Delete run">Delete</button>
+    </div>
+  </div>
+
+  <p class="orig-query">&ldquo;{{ row['query'] }}&rdquo;</p>
+  <div class="chip-row">
+    <span class="chip status-{{ row['status'] }}">{{ row['status'] }}</span>
+    <span class="chip">depth {{ row['depth'] }}</span>
+    <span class="chip">{{ RECENCY_LABELS[row['recency']] | lower }}</span>
+    <span class="chip">via {{ row['origin'] }}</span>
+    {% if row['created_by'] %}<span class="user-tag" style="--hue: {{ row['created_by'] | user_hue }}" title="started by {{ row['created_by'] }}">{{ row['created_by'] }}</span>{% endif %}
+    {% if row['evergreen'] %}<span class="chip chip-evergreen">auto-refreshing daily</span>{% endif %}
+    {% if row['stop_reason'] %}<span class="chip subtle">{{ row['stop_reason'] }}</span>{% endif %}
+  </div>
+  {% if parent %}<p class="parent-note">follows up on <a href="/runs/{{ parent['id'] }}">{{ parent['title'] or parent['query'] }}</a></p>{% endif %}
+  {% if related %}
+  <p class="parent-note">
+    {% for kind, rid, rtitle in related %}<span class="rel">{{ kind }}: <a href="/runs/{{ rid }}">{{ rtitle or rid }}</a></span>{% if not loop.last %} · {% endif %}{% endfor %}
+  </p>
+  {% endif %}
+</header>
